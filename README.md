@@ -32,14 +32,15 @@ This workflow automates end-to-end content creation. By triggering a simple form
 ---
 
 ## 💻 Source Code & Workflow
-* Source n8n JSON workflow file is available in [`workflow.json`](./workflow.json).
+* Source n8n JSON workflow file is available in [Multi-Agent Content Core (Free).json](https://github.com/user-attachments/files/31748174/Multi-Agent.Content.Core.Free.json)
 
 ---
 
 ## 📷 Workflow Visuals & Demo
 
 ### n8n Multi-Agent Workflow Canvas
-![Multi-Agent Content Core Canvas](workflow-canvas.png)
+![Multi-Agent Content Core Canvas]<img width="886" height="460" alt="Complete Workflow" src="https://github.com/user-attachments/assets/baeaafe1-ce73-4bc5-b9a2-cc3859d194ee" />
+
 
 ### 🎬 Video Demo
 https://drive.google.com/file/d/1rQ9SdKjjed_S2KwOyLSzpE9Obfnr_s9E/view?usp=sharing
