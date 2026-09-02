@@ -1,0 +1,1561 @@
+{
+  "name": "Multi-Agent Content Core (Free)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Content Core (Free) — New Article Brief",
+        "formDescription": "Submit a topic and the free multi-agent system will research, write, and prepare it for publishing.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic / Keyword",
+              "fieldName": "topic",
+              "placeholder": "e.g. AI agents for customer support",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Target Audience",
+              "fieldName": "audience",
+              "placeholder": "e.g. SaaS founders and product managers"
+            },
+            {
+              "fieldLabel": "Tone / Brand Voice",
+              "fieldType": "textarea",
+              "fieldName": "tone",
+              "placeholder": "e.g. confident, practical, lightly conversational"
+            },
+            {
+              "fieldLabel": "Desired Word Count",
+              "fieldType": "number",
+              "fieldName": "word_count",
+              "placeholder": "1800"
+            }
+          ]
+        },
+        "options": {
+          "path": "content-core-free"
+        }
+      },
+      "id": "e07db1ff-9c92-42b6-90a7-55c6c19592b9",
+      "name": "Content Brief Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -624,
+        288
+      ],
+      "webhookId": "d53a5641-bab4-4aa5-b0e1-886759a193df"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "topic",
+              "type": "string",
+              "value": "={{ $json.topic }}"
+            },
+            {
+              "id": "b2",
+              "name": "audience",
+              "type": "string",
+              "value": "={{ $json.audience || \"a general professional audience\" }}"
+            },
+            {
+              "id": "b3",
+              "name": "tone",
+              "type": "string",
+              "value": "={{ $json.tone || \"clear, authoritative, and human\" }}"
+            },
+            {
+              "id": "b4",
+              "name": "word_count",
+              "type": "number",
+              "value": "={{ Number($json.word_count) || 1800 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2ae5c48b-53c6-4fa0-85df-2f054da80cf7",
+      "name": "Normalize Brief",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -400,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpTemplatedCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json.topic, search_depth: \"advanced\", max_results: 8, include_answer: true }) }}",
+        "options": {}
+      },
+      "id": "832db19e-3be9-4def-b17a-d9f56dad65b7",
+      "name": "Web Search (Tavily)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        288
+      ],
+      "credentials": {
+        "httpTemplatedCustomAuth": {
+          "id": "iQmBtOd4ztgHsqHa",
+          "name": "Tavily API (Nabiha S)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "topic",
+              "type": "string",
+              "value": "={{ $('Normalize Brief').item.json.topic }}"
+            },
+            {
+              "id": "w2",
+              "name": "audience",
+              "type": "string",
+              "value": "={{ $('Normalize Brief').item.json.audience }}"
+            },
+            {
+              "id": "w3",
+              "name": "tone",
+              "type": "string",
+              "value": "={{ $('Normalize Brief').item.json.tone }}"
+            },
+            {
+              "id": "w4",
+              "name": "word_count",
+              "type": "number",
+              "value": "={{ $('Normalize Brief').item.json.word_count }}"
+            },
+            {
+              "id": "w5",
+              "name": "search_answer",
+              "type": "string",
+              "value": "={{ $json.answer || \"\" }}"
+            },
+            {
+              "id": "w6",
+              "name": "search_results",
+              "type": "array",
+              "value": "={{ ($json.results || []).map(r => ({ title: r.title, url: r.url, content: r.content })) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90d142ae-e3ed-4722-a824-df20a3ed7da6",
+      "name": "Attach Search Results",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        48,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the LIVE web search results below and produce structured research.\n\nTopic: {{ $json.topic }}\nTarget audience: {{ $json.audience }}\n\nTavily quick answer:\n{{ $json.search_answer }}\n\nSearch results (title, url, content) — use these as your sources:\n{{ JSON.stringify($json.search_results) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a meticulous research analyst. You are GIVEN real, live web search results from Tavily in the user message. Base your output ONLY on those results — extract key facts, statistics, recent trends, and unique angles, and cite the exact sources (title + url) provided. Never invent statistics or URLs that are not in the provided results. Return only the structured JSON defined by the output schema: key_facts, statistics, recent_trends, unique_angles, and sources (title + url)."
+        }
+      },
+      "id": "5e1cffe9-3b55-48fb-b198-5ca149457316",
+      "name": "Research Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        272,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "aec6f566-55cc-4d67-9472-5a592ad7f116",
+      "name": "Research Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        512
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"key_facts\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"statistics\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"recent_trends\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"unique_angles\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"sources\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"url\":{\"type\":\"string\"}}}}},\"required\":[\"key_facts\",\"statistics\",\"recent_trends\",\"unique_angles\",\"sources\"]}"
+      },
+      "id": "577d13b8-7674-46e7-af92-15c38de0afd9",
+      "name": "Research Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "research",
+              "type": "object",
+              "value": "={{ $json.output }}"
+            },
+            {
+              "id": "r2",
+              "name": "topic",
+              "type": "string",
+              "value": "={{ $('Normalize Brief').item.json.topic }}"
+            },
+            {
+              "id": "r3",
+              "name": "audience",
+              "type": "string",
+              "value": "={{ $('Normalize Brief').item.json.audience }}"
+            },
+            {
+              "id": "r4",
+              "name": "tone",
+              "type": "string",
+              "value": "={{ $('Normalize Brief').item.json.tone }}"
+            },
+            {
+              "id": "r5",
+              "name": "word_count",
+              "type": "number",
+              "value": "={{ $('Normalize Brief').item.json.word_count }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "09ed05f8-8c6a-497b-a174-602d507fc0a4",
+      "name": "Structure Research",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        624,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create a detailed SEO-optimized outline and metadata for an article.\n\nTopic: {{ $json.topic }}\nAudience: {{ $json.audience }}\nTarget length: {{ $json.word_count }} words\n\nResearch findings:\n{{ JSON.stringify($json.research) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an SEO content strategist. Produce a detailed H2/H3 outline plus a compelling article title, primary keyword, secondary keywords, meta title (<=60 chars), meta description (<=155 chars), a URL slug (lowercase, hyphenated), and 4-8 tags. Return only the structured JSON defined by the schema."
+        }
+      },
+      "id": "5ecec062-21b5-4667-a0bc-871ff65808d4",
+      "name": "Outline & SEO Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        848,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "a3691975-a0b2-4cf9-a933-623ba32f6a20",
+      "name": "Outline Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        864,
+        512
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"outline\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"h2\":{\"type\":\"string\"},\"h3\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}},\"primary_keyword\":{\"type\":\"string\"},\"secondary_keywords\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"meta_title\":{\"type\":\"string\"},\"meta_description\":{\"type\":\"string\"},\"slug\":{\"type\":\"string\"},\"tags\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"title\",\"outline\",\"primary_keyword\",\"secondary_keywords\",\"meta_title\",\"meta_description\",\"slug\",\"tags\"]}"
+      },
+      "id": "d0d3eea7-8792-44bc-97b3-cd7ecc79b1ae",
+      "name": "Outline & SEO Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        992,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "seo",
+              "type": "object",
+              "value": "={{ $json.output }}"
+            },
+            {
+              "id": "s2",
+              "name": "topic",
+              "type": "string",
+              "value": "={{ $('Structure Research').item.json.topic }}"
+            },
+            {
+              "id": "s3",
+              "name": "audience",
+              "type": "string",
+              "value": "={{ $('Structure Research').item.json.audience }}"
+            },
+            {
+              "id": "s4",
+              "name": "tone",
+              "type": "string",
+              "value": "={{ $('Structure Research').item.json.tone }}"
+            },
+            {
+              "id": "s5",
+              "name": "word_count",
+              "type": "number",
+              "value": "={{ $('Structure Research').item.json.word_count }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "672aa093-5482-4731-8a92-acf6568e6a1b",
+      "name": "Structure SEO",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1200,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write the full blog post in clean Markdown, following the outline strictly.\n\nTitle: {{ $json.seo.title }}\nAudience: {{ $json.audience }}\nBrand voice / tone: {{ $json.tone }}\nTarget length: {{ $json.word_count }} words\nPrimary keyword: {{ $json.seo.primary_keyword }}\nSecondary keywords: {{ ($json.seo.secondary_keywords || []).join(\", \") }}\n\nOutline:\n{{ JSON.stringify($json.seo.outline) }}\n\nResearch to draw from (weave in facts, stats, and sources naturally):\n{{ JSON.stringify($(\"Structure Research\").item.json.research) }}",
+        "options": {
+          "systemMessage": "You are an expert long-form writer. Write natural, engaging, high-quality prose that does not read like generic AI output. Follow the outline exactly using Markdown ## and ### headings. Include relevant statistics and cite sources inline as Markdown links where appropriate. Output ONLY the Markdown article — no preamble, no commentary."
+        }
+      },
+      "id": "5cf6a2a8-51f8-49a1-bd95-6274e3a87d6d",
+      "name": "Writer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1424,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "maxOutputTokens": 8000
+        }
+      },
+      "id": "0b233707-d00c-413b-97c8-456b41709d79",
+      "name": "Writer Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        512
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "draft_markdown",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eaa6a770-0522-416f-b5d8-520fda898d12",
+      "name": "Capture Draft",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1776,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Review this draft article for brand voice consistency, readability & engagement, SEO quality, and factual consistency.\n\nBrand voice / tone: {{ $(\"Structure SEO\").item.json.tone }}\nPrimary keyword: {{ $(\"Structure SEO\").item.json.seo.primary_keyword }}\n\nDraft:\n{{ $json.draft_markdown }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a senior editor. Score the draft from 1-10 (quality_score), give short actionable feedback (feedback), and always provide an improved_article: a fully revised Markdown version incorporating your fixes. Return only the structured JSON."
+        }
+      },
+      "id": "37a84377-126a-460f-8d3a-f510e4958eba",
+      "name": "Editor Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2000,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "814546cf-d362-4100-9141-8f199a37ade2",
+      "name": "Editor Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        512
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"quality_score\":{\"type\":\"number\"},\"feedback\":{\"type\":\"string\"},\"improved_article\":{\"type\":\"string\"}},\"required\":[\"quality_score\",\"feedback\",\"improved_article\"]}"
+      },
+      "id": "48a5a502-db4b-400c-94af-2f7b0f59cec2",
+      "name": "Editor Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2144,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.output.quality_score }}",
+              "rightValue": 8,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "804c321e-dd75-4329-8944-6b42f247fecd",
+      "name": "Needs Revision? (score < 8)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2352,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Revise the article ONE time using the editor feedback. Keep everything that works; fix the issues raised.\n\nEditor feedback:\n{{ $json.output.feedback }}\n\nOriginal draft:\n{{ $(\"Capture Draft\").item.json.draft_markdown }}\n\nEditor's suggested improved version (use as reference):\n{{ $json.output.improved_article }}",
+        "options": {
+          "systemMessage": "You are an expert writer performing a single revision pass. Address the editor feedback and output ONLY the full revised Markdown article — no commentary."
+        }
+      },
+      "id": "f07f0fa8-96da-4538-8e35-ba34c60032d0",
+      "name": "Revise Article",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2576,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "maxOutputTokens": 8000
+        }
+      },
+      "id": "472495f6-cb67-4bcc-8d98-653e0eca2292",
+      "name": "Revision Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2656,
+        400
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fr1",
+              "name": "final_article",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            },
+            {
+              "id": "fr2",
+              "name": "quality_score",
+              "type": "number",
+              "value": "={{ $('Editor Agent').item.json.output.quality_score }}"
+            },
+            {
+              "id": "fr3",
+              "name": "was_revised",
+              "type": "boolean",
+              "value": "={{ true }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "88bcb924-9cc6-4e97-9ccd-7122824a4f1e",
+      "name": "Select Final (Revised)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2928,
+        160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "9c831c40-42d7-43cd-9459-7441c42cd3e1",
+      "name": "Final Article Ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        3152,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a strong, professional LinkedIn post promoting this article.\n\nTitle: {{ $(\"Outline & SEO Agent\").item.json.output.title }}\nAudience: {{ $(\"Structure SEO\").item.json.audience }}\n\nArticle (for context):\n{{ $json.final_article }}",
+        "options": {
+          "systemMessage": "You are a LinkedIn ghostwriter. Write a post with a scroll-stopping hook, clear value in the body, and a strong CTA. Keep it professional and human. End with 3-6 relevant hashtags. Output only the post text."
+        }
+      },
+      "id": "51f7342d-a7f8-48e4-b4a6-8131a3b19bee",
+      "name": "LinkedIn Post Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3376,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "24a70abd-ba15-48a0-ac23-67f571982468",
+      "name": "LinkedIn Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        3456,
+        512
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "l1",
+              "name": "linkedin_post",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3651fa7-ad7b-460b-bdb0-708646eef3d4",
+      "name": "Capture LinkedIn",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3728,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create ONE vivid, detailed image-generation prompt for a featured blog image based on this article title and theme.\n\nTitle: {{ $(\"Outline & SEO Agent\").item.json.output.title }}\nTopic: {{ $(\"Structure SEO\").item.json.topic }}",
+        "options": {
+          "systemMessage": "You write prompts for a text-to-image model. Produce a single, richly descriptive prompt for a professional, editorial featured image (modern, clean, no text overlays). Output only the prompt."
+        }
+      },
+      "id": "62771618-a6c3-4667-81aa-274492b326d0",
+      "name": "Image Prompt Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3952,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "f56cd997-3d5d-420f-a1fa-79a5f038b2ef",
+      "name": "Image Prompt Model (Gemini)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        4032,
+        512
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ip1",
+              "name": "image_prompt",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "26fd2dfc-79e4-465b-9fae-0578eb907fae",
+      "name": "Capture Image Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        4304,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "models/gemini-2.5-flash-image",
+          "cachedResultName": "models/gemini-2.5-flash-image (Nano Banana)"
+        },
+        "prompt": "={{ $json.image_prompt }}",
+        "options": {
+          "binaryPropertyOutput": "featured_image"
+        }
+      },
+      "id": "b4507d3d-3d9b-4daf-92c4-a0a569202154",
+      "name": "Generate Featured Image",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        4528,
+        288
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 20000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wXu0z7VDgOXVPl9l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0BTLJXERT8",
+          "mode": "list",
+          "cachedResultName": "new-channel"
+        },
+        "text": "=*:mag: New Content Published*\n\n*Title:* {{ $(\"Outline & SEO Agent\").item.json.output.title }}\n*Quality Score:* {{ $(\"Final Article Ready\").item.json.quality_score }}/10\n\n*Preview:*\n{{ $(\"Final Article Ready\").item.json.final_article.slice(0, 600) }}...\n\n*LinkedIn Post:*\n{{ $(\"Capture LinkedIn\").item.json.linkedin_post }}\n\n_The full package is being saved to Google Sheets automatically._",
+        "otherOptions": {}
+      },
+      "id": "66e44557-b002-4463-bd2e-e4ed081e06c4",
+      "name": "Send Approval Request",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        4752,
+        288
+      ],
+      "webhookId": "ecb4fb9f-cba8-4465-98c6-c5606a0dd21f",
+      "credentials": {
+        "slackApi": {
+          "id": "fpyvXfeAEDLnq2VA",
+          "name": "Slack account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "g0",
+              "name": "created_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "g1",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $('Outline & SEO Agent').item.json.output.title }}"
+            },
+            {
+              "id": "g2",
+              "name": "slug",
+              "type": "string",
+              "value": "={{ $('Outline & SEO Agent').item.json.output.slug }}"
+            },
+            {
+              "id": "g3",
+              "name": "meta_title",
+              "type": "string",
+              "value": "={{ $('Outline & SEO Agent').item.json.output.meta_title }}"
+            },
+            {
+              "id": "g4",
+              "name": "meta_description",
+              "type": "string",
+              "value": "={{ $('Outline & SEO Agent').item.json.output.meta_description }}"
+            },
+            {
+              "id": "g5",
+              "name": "primary_keyword",
+              "type": "string",
+              "value": "={{ $('Outline & SEO Agent').item.json.output.primary_keyword }}"
+            },
+            {
+              "id": "g6",
+              "name": "tags",
+              "type": "string",
+              "value": "={{ ($('Outline & SEO Agent').item.json.output.tags || []).join(', ') }}"
+            },
+            {
+              "id": "g7",
+              "name": "quality_score",
+              "type": "number",
+              "value": "={{ $('Final Article Ready').item.json.quality_score }}"
+            },
+            {
+              "id": "g8",
+              "name": "linkedin_post",
+              "type": "string",
+              "value": "={{ $('Capture LinkedIn').item.json.linkedin_post }}"
+            },
+            {
+              "id": "g9",
+              "name": "article_markdown",
+              "type": "string",
+              "value": "={{ $('Final Article Ready').item.json.final_article }}"
+            },
+            {
+              "id": "g10",
+              "name": "research_json",
+              "type": "string",
+              "value": "={{ JSON.stringify($('Structure Research').item.json.research) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a7bc9fc0-a5a3-48da-81ef-105a9dd24ccf",
+      "name": "Build Sheet Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        4976,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1Vob2ccDREVwF4gnJlRnYqiAzY8vPK42DR3V65xsWSaA",
+          "cachedResultName": "Content Army",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Vob2ccDREVwF4gnJlRnYqiAzY8vPK42DR3V65xsWSaA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Vob2ccDREVwF4gnJlRnYqiAzY8vPK42DR3V65xsWSaA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "handlingExtraData": "insertInNewColumn"
+        }
+      },
+      "id": "123244eb-72c8-42db-8819-4885536c00c3",
+      "name": "Save Package to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        5200,
+        288
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "M1tDHckUnKCTFwjD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0BTLJXERT8",
+          "mode": "list",
+          "cachedResultName": "new-channel"
+        },
+        "text": "=:tada: *Saved to Google Sheets!*\n*Title:* {{ $(\"Outline & SEO Agent\").item.json.output.title }}\n*Quality score:* {{ $(\"Final Article Ready\").item.json.quality_score }}/10",
+        "otherOptions": {}
+      },
+      "id": "99fa7cbe-636e-4178-babb-f74a7ff16f7f",
+      "name": "Slack Success",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        5424,
+        288
+      ],
+      "webhookId": "8bd74df0-1c5a-48d1-9e9b-fc582b5f1e0e",
+      "credentials": {
+        "slackApi": {
+          "id": "fpyvXfeAEDLnq2VA",
+          "name": "Slack account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fd1",
+              "name": "final_article",
+              "type": "string",
+              "value": "={{ $('Capture Draft').item.json.draft_markdown }}"
+            },
+            {
+              "id": "fd2",
+              "name": "quality_score",
+              "type": "number",
+              "value": "={{ $json.output.quality_score }}"
+            },
+            {
+              "id": "fd3",
+              "name": "was_revised",
+              "type": "boolean",
+              "value": "={{ false }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6068f1b9-b33b-46a4-8a39-c696239e7889",
+      "name": "Select Final (Original)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2928,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Intake\nForm trigger collects the brief (topic, audience, tone, word count) and normalizes defaults.",
+        "height": 200,
+        "width": 340
+      },
+      "id": "d7a88517-5d33-4362-b960-555ae1a287ba",
+      "name": "Sticky Intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Research Agent (free)\nGoogle Gemini + free Tavily web search. Forces structured JSON: facts, stats, trends, angles, sources.",
+        "height": 220,
+        "width": 360
+      },
+      "id": "b759f17f-2abb-4e35-9500-db8fe36453a7",
+      "name": "Sticky Research",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        256,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3-4. Outline/SEO + Writer\nGemini outline & SEO metadata (structured JSON). Writer produces the full Markdown article.",
+        "height": 200,
+        "width": 360
+      },
+      "id": "03b438e9-d91a-4f5b-b567-20be23a18f15",
+      "name": "Sticky Write",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Editor + Revision Loop\nGemini editor scores 1-10 and gives feedback. If score < 8, one automatic revision pass runs, then both paths converge.",
+        "height": 220,
+        "width": 360
+      },
+      "id": "74e08e8a-bd72-4671-9327-d5a5eef0abc2",
+      "name": "Sticky Editor",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2608,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6-7. LinkedIn + Image (free)\nGemini LinkedIn post and a free Gemini-generated featured image (binary output).",
+        "height": 200,
+        "width": 360
+      },
+      "id": "35645e0b-dd7f-4aa2-bb3c-5cd461eea030",
+      "name": "Sticky Social",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3632,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 8. Slack Notification\nSends the content preview (title, article, LinkedIn post) to Slack, then continues automatically to save the package.",
+        "height": 80,
+        "width": 456
+      },
+      "id": "efd123bf-fddb-4510-acbc-c44eca1877fe",
+      "name": "Sticky Approval",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4592,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 9. Save & Confirm\nSave the full package to Google Sheets and send a success notification to Slack.",
+        "height": 140,
+        "width": 472
+      },
+      "id": "73ad34e2-a909-4e17-a348-205d401cf569",
+      "name": "Sticky Publish",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5312,
+        672
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Content Brief Form": {
+      "main": [
+        [
+          {
+            "node": "Normalize Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Brief": {
+      "main": [
+        [
+          {
+            "node": "Web Search (Tavily)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web Search (Tavily)": {
+      "main": [
+        [
+          {
+            "node": "Attach Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Search Results": {
+      "main": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Structure Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Research": {
+      "main": [
+        [
+          {
+            "node": "Outline & SEO Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outline & SEO Agent": {
+      "main": [
+        [
+          {
+            "node": "Structure SEO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outline Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Outline & SEO Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outline & SEO Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Outline & SEO Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure SEO": {
+      "main": [
+        [
+          {
+            "node": "Writer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writer Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writer Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Writer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Draft": {
+      "main": [
+        [
+          {
+            "node": "Editor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Editor Agent": {
+      "main": [
+        [
+          {
+            "node": "Needs Revision? (score < 8)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Editor Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Editor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Editor Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Editor Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Revision? (score < 8)": {
+      "main": [
+        [
+          {
+            "node": "Revise Article",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Select Final (Original)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revise Article": {
+      "main": [
+        [
+          {
+            "node": "Select Final (Revised)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revision Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Revise Article",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Final (Revised)": {
+      "main": [
+        [
+          {
+            "node": "Final Article Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Article Ready": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Post Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Post Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LinkedIn Post Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Image Prompt Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Prompt Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Prompt Model (Gemini)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image Prompt Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Featured Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Featured Image": {
+      "main": [
+        [
+          {
+            "node": "Send Approval Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Approval Request": {
+      "main": [
+        [
+          {
+            "node": "Build Sheet Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sheet Row": {
+      "main": [
+        [
+          {
+            "node": "Save Package to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Package to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Slack Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Final (Original)": {
+      "main": [
+        [
+          {
+            "node": "Final Article Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c1a806a3-4328-45e8-af5c-8699b62d9600",
+  "meta": {
+    "instanceId": "0fe9871cf469005429489043f2914c5583ad16bdbc2def99e3418d68c80f3404"
+  },
+  "nodeGroups": [
+    {
+      "id": "5db1db0d-af6c-459a-8149-dc4ba8b431d1",
+      "name": "Intake",
+      "nodeIds": [
+        "2ae5c48b-53c6-4fa0-85df-2f054da80cf7"
+      ],
+      "description": "Collects and normalizes the content brief."
+    },
+    {
+      "id": "af5df991-f82f-43f1-8147-4e5f95fb43f8",
+      "name": "Research",
+      "nodeIds": [
+        "832db19e-3be9-4def-b17a-d9f56dad65b7",
+        "90d142ae-e3ed-4722-a824-df20a3ed7da6",
+        "5e1cffe9-3b55-48fb-b198-5ca149457316",
+        "aec6f566-55cc-4d67-9472-5a592ad7f116",
+        "577d13b8-7674-46e7-af92-15c38de0afd9",
+        "09ed05f8-8c6a-497b-a174-602d507fc0a4"
+      ],
+      "description": "Live Tavily web search (visible) analyzed into structured JSON."
+    },
+    {
+      "id": "ee5ad7e1-8a76-4533-8cc1-8a0bebb8eaaa",
+      "name": "Outline & Writing",
+      "nodeIds": [
+        "5ecec062-21b5-4667-a0bc-871ff65808d4",
+        "a3691975-a0b2-4cf9-a933-623ba32f6a20",
+        "d0d3eea7-8792-44bc-97b3-cd7ecc79b1ae",
+        "672aa093-5482-4731-8a92-acf6568e6a1b",
+        "5cf6a2a8-51f8-49a1-bd95-6274e3a87d6d",
+        "0b233707-d00c-413b-97c8-456b41709d79",
+        "eaa6a770-0522-416f-b5d8-520fda898d12"
+      ],
+      "description": "SEO outline and full Markdown draft."
+    },
+    {
+      "id": "727401e8-3c86-40d8-acb8-2711b278e2e8",
+      "name": "Editing & Revision",
+      "nodeIds": [
+        "37a84377-126a-460f-8d3a-f510e4958eba",
+        "814546cf-d362-4100-9141-8f199a37ade2",
+        "48a5a502-db4b-400c-94af-2f7b0f59cec2",
+        "804c321e-dd75-4329-8944-6b42f247fecd",
+        "f07f0fa8-96da-4538-8e35-ba34c60032d0",
+        "472495f6-cb67-4bcc-8d98-653e0eca2292",
+        "88bcb924-9cc6-4e97-9ccd-7122824a4f1e",
+        "6068f1b9-b33b-46a4-8a39-c696239e7889",
+        "9c831c40-42d7-43cd-9459-7441c42cd3e1"
+      ],
+      "description": "Quality scoring with a one-pass revision loop."
+    },
+    {
+      "id": "cb7526d2-2d25-45bb-a89a-a29e14b970b8",
+      "name": "Social & Image",
+      "nodeIds": [
+        "51f7342d-a7f8-48e4-b4a6-8131a3b19bee",
+        "24a70abd-ba15-48a0-ac23-67f571982468",
+        "c3651fa7-ad7b-460b-bdb0-708646eef3d4",
+        "62771618-a6c3-4667-81aa-274492b326d0",
+        "f56cd997-3d5d-420f-a1fa-79a5f038b2ef",
+        "26fd2dfc-79e4-465b-9fae-0578eb907fae",
+        "b4507d3d-3d9b-4daf-92c4-a0a569202154"
+      ],
+      "description": "LinkedIn post and free Gemini featured image."
+    },
+    {
+      "id": "4f60d116-bb5b-473f-ae3d-910cdb11bb0b",
+      "name": "Notify",
+      "nodeIds": [
+        "66e44557-b002-4463-bd2e-e4ed081e06c4"
+      ],
+      "description": "Sends the content preview to Slack."
+    },
+    {
+      "id": "555931e6-e556-4d43-87ef-08f049ddef9e",
+      "name": "Publish",
+      "nodeIds": [
+        "a7bc9fc0-a5a3-48da-81ef-105a9dd24ccf",
+        "123244eb-72c8-42db-8819-4885536c00c3",
+        "99fa7cbe-636e-4178-babb-f74a7ff16f7f"
+      ],
+      "description": "Google Sheets archive and Slack notification."
+    }
+  ],
+  "id": "4BsZq0Au1k29Vsdc",
+  "tags": []
+}
